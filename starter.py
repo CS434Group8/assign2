@@ -70,18 +70,26 @@ def getPy(Xarr,Yarr):
 
 
 def countWords(Xarr,alpha,vocabulary,defaultWordDict,vectorizer):
-    vectorizer.fit(Xarr)
-    words = {k:v for k, v in vectorizer.vocabulary_.items()}
+    
+    words=vectorizer.fit_transform(Xarr)
+    faetures=vectorizer.get_feature_names()
+    arr=words.toarray()
     word_dict=copy.deepcopy(defaultWordDict)
     totalwords=0
-    # print(len(vocabulary),len(word_dict))
-    for key in word_dict:
-        if(key in words):
-            totalwords+=words[key]
-            word_dict[key]=words[key]
+    
+    column_sums = arr.sum(axis=0)
+
+    index=0
+    for key in faetures:
+        if(key in word_dict):
+            totalwords+=column_sums[index]
+            word_dict[key]=column_sums[index]
+        index+=1
+            
     for word in word_dict:
         val=word_dict[word]+alpha
         word_dict[word]=val/(totalwords+len(vocabulary)*alpha)
+        
     return word_dict
 
 def predictY(Xarr,p1,p0,probablity_positive_dict,probablity_negative_dict,vocabulary,vectorizer):
@@ -150,7 +158,7 @@ def tuneAplpha(alpha):
     return valid_accuracy
 
 def tuneBoth(max_features_test,alpha):
-    # print('max_features_test: '+str(max_features_test)+' alpha: '+str(alpha))
+    print('max_features_test: '+str(max_features_test)+' alpha: '+str(alpha))
     newvectorizer = CountVectorizer(
         stop_words="english",
         preprocessor=clean_text,
@@ -195,59 +203,65 @@ train_p1,train_p0,train_positive_Xarr,train_negative_Xarr=getPy(train_x,train_y)
 pool = mp.Pool(mp.cpu_count())
 
 
-# print("Step2: train model")
-# train_positive_word_probablity=countWords(train_positive_Xarr,1,vocabulary,defaultWordDict,vectorizer)
-# train_negative_word_probablity=countWords(train_negative_Xarr,1,vocabulary,defaultWordDict,vectorizer)
+print("Step2: train model")
+train_positive_word_probablity=countWords(train_positive_Xarr,1,vocabulary,defaultWordDict,vectorizer)
+train_negative_word_probablity=countWords(train_negative_Xarr,1,vocabulary,defaultWordDict,vectorizer)
 
 
 
-# valid_predict_Y=predictY(valid_x,train_p1,train_p0,train_positive_word_probablity,train_negative_word_probablity,vocabulary,vectorizer)
+valid_predict_Y=predictY(valid_x,train_p1,train_p0,train_positive_word_probablity,train_negative_word_probablity,vocabulary,vectorizer)
 
-# valid_accuracy=calAccuracy(valid_predict_Y,valid_y)
+valid_accuracy=calAccuracy(valid_predict_Y,valid_y)
 
-# print("Step3: validation accuracy is "+str(valid_accuracy))
-# print("Step3: output to test-prediction1.csv")
-# test_predict_Y=predictY(test_x,train_p1,train_p0,train_positive_word_probablity,train_negative_word_probablity,vocabulary,vectorizer)
+print("Step3: validation accuracy is "+str(valid_accuracy))
+print("Step3: output to test-prediction1.csv")
+test_predict_Y=predictY(test_x,train_p1,train_p0,train_positive_word_probablity,train_negative_word_probablity,vocabulary,vectorizer)
 
-# test_Y_dataframe=DataFrame(test_predict_Y,columns=['PredictY'])
-# test_Y_dataframe.to_csv('test-prediction1.csv',index=False)
+test_Y_dataframe=DataFrame(test_predict_Y,columns=['PredictY'])
+test_Y_dataframe.to_csv('test-prediction1.csv',index=False)
 
 
-# print("Step4: Tuning smoothing parameter alpha")
+print("Step4: Tuning smoothing parameter alpha")
 
-# alphaTask=[0.2,0.4,0.6,0.8,1,1.2,1.4,1.6,1.8,2]
+alphaTask=[0.2,0.4,0.6,0.8,1,1.2,1.4,1.6,1.8,2]
+result=pool.map(tuneAplpha,alphaTask)
+print(alphaTask)
+print(result)
+
+bestAccuracy=max(result)
+bestAlpha=alphaTask[result.index(bestAccuracy)]
+
+print("The best alpha is "+str(bestAlpha)+" with the accuracy of "+str(bestAccuracy))
+
+
+plt.figure()
+plt.plot(alphaTask, result) 
+  
+# naming the x axis 
+plt.xlabel('Alpha') 
+# naming the y axis 
+plt.ylabel('Accuracy') 
+plt.savefig('Train_Accuracy_Alpha.png')
+print("Step4: save the result to Train_Accuracy_Alpha.png")
+
+print("Step4: output to test-prediction2.csv")
+train_positive_word_probablity=countWords(train_positive_Xarr,bestAlpha,vocabulary,defaultWordDict,vectorizer)
+train_negative_word_probablity=countWords(train_negative_Xarr,bestAlpha,vocabulary,defaultWordDict,vectorizer)
+test_predict_Y2=predictY(test_x,train_p1,train_p0,train_positive_word_probablity,train_negative_word_probablity,vocabulary,vectorizer)
+test_Y_dataframe=DataFrame(test_predict_Y2,columns=['PredictY'])
+test_Y_dataframe.to_csv('test-prediction2.csv',index=False)
+
+
+
+# alphaTask=[20,25,30,35,40]
 # result=pool.map(tuneAplpha,alphaTask)
 # print(alphaTask)
 # print(result)
 
-# bestAccuracy=max(result)
-# bestAlpha=alphaTask[result.index(bestAccuracy)]
-
-# print("The best alpha is "+str(bestAlpha)+" with the accuracy of "+str(bestAccuracy))
-
-
-# plt.figure()
-# plt.plot(alphaTask, result) 
-  
-# # naming the x axis 
-# plt.xlabel('Alpha') 
-# # naming the y axis 
-# plt.ylabel('Accuracy') 
-# plt.savefig('Train_Accuracy_Alpha.png')
-# print("Step4: save the result to Train_Accuracy_Alpha.png")
-
-# print("Step4: output to test-prediction2.csv")
-# train_positive_word_probablity=countWords(train_positive_Xarr,bestAlpha,vocabulary,defaultWordDict,vectorizer)
-# train_negative_word_probablity=countWords(train_negative_Xarr,bestAlpha,vocabulary,defaultWordDict,vectorizer)
-# test_predict_Y2=predictY(test_x,train_p1,train_p0,train_positive_word_probablity,train_negative_word_probablity,vocabulary,vectorizer)
-# test_Y_dataframe=DataFrame(test_predict_Y2,columns=['PredictY'])
-# test_Y_dataframe.to_csv('test-prediction2.csv',index=False)
-
-
 
 # print("Step5:Tune max_features")
 
-# featuresTask=[i for i in range(1000,10000,1000)]
+# featuresTask=[i for i in range(10000,45000,5000)]
 # result=pool.map(tuneMaxFeatures,featuresTask)
 # print(featuresTask)
 # print(result)
@@ -262,8 +276,8 @@ pool = mp.Pool(mp.cpu_count())
 
 print("Step5: Tune both")
 
-alphaTask=[0.2,0.4,0.6,0.8,1]
-featuresTask=[i*100 for i in range(1,11)]
+alphaTask=[10,20]
+featuresTask=[10000,20000]
 bothtasks=[(x,y) for x in featuresTask for y in alphaTask]
 
 
@@ -280,23 +294,23 @@ print(bestAccuracy)
 
 pool.close()
 
-# newvectorizer = CountVectorizer(
-#     stop_words="english",
-#     preprocessor=clean_text,
-#     max_features=bestcombo[0],
-# )
-# # fit the vectorizer on the text
-# words=newvectorizer.fit(imdb_data['review'])
-# # get the vocabulary
-# inv_vocab = {v: k for k, v in newvectorizer.vocabulary_.items()}
-# newvoca = [inv_vocab[i] for i in range(len(inv_vocab))]
-# newdefaultWordDict={key: 0 for key in newvoca}
+newvectorizer = CountVectorizer(
+    stop_words="english",
+    preprocessor=clean_text,
+    max_features=bestcombo[0],
+)
+# fit the vectorizer on the text
+words=newvectorizer.fit(imdb_data['review'])
+# get the vocabulary
+inv_vocab = {v: k for k, v in newvectorizer.vocabulary_.items()}
+newvoca = [inv_vocab[i] for i in range(len(inv_vocab))]
+newdefaultWordDict={key: 0 for key in newvoca}
 
     
-# print("Step5:output to test-prediction3.csv")
-# train_positive_word_probablity=countWords(train_positive_Xarr,bestcombo[1],newvoca,newdefaultWordDict,newvectorizer)
-# train_negative_word_probablity=countWords(train_negative_Xarr,bestcombo[1],newvoca,newdefaultWordDict,newvectorizer)
-# test_predict_Y3=predictY(test_x,train_p1,train_p0,train_positive_word_probablity,train_negative_word_probablity,newvoca,newvectorizer)
-# test_Y_dataframe=DataFrame(test_predict_Y3,columns=['PredictY'])
-# test_Y_dataframe.to_csv('test-prediction3.csv',index=False)
+print("Step5:output to test-prediction3.csv")
+train_positive_word_probablity=countWords(train_positive_Xarr,bestcombo[1],newvoca,newdefaultWordDict,newvectorizer)
+train_negative_word_probablity=countWords(train_negative_Xarr,bestcombo[1],newvoca,newdefaultWordDict,newvectorizer)
+test_predict_Y3=predictY(test_x,train_p1,train_p0,train_positive_word_probablity,train_negative_word_probablity,newvoca,newvectorizer)
+test_Y_dataframe=DataFrame(test_predict_Y3,columns=['PredictY'])
+test_Y_dataframe.to_csv('test-prediction3.csv',index=False)
     

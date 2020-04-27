@@ -1,2 +1,10 @@
-source myenv_3.6_cs434/bin/activate.csh
 python3 starter.py
+
+
+required libray:
+pandas
+sklearn.feature_extraction.text 
+re
+numpy
+matplotlib.pyplot
+multiprocessing
